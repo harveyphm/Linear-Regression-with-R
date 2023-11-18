@@ -1,0 +1,438 @@
+---
+title: "Assignment 4"
+author: "Group 14"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r}
+# load libraries ggplot2 and ggally 
+library(ggplot2) 
+library(GGally) 
+library(ggpubr)
+library(lmtest)
+library(glue)
+```
+
+## Q1 Load the data. Please download the Boston Dataset from canvas and read it in R
+Use read.csv function to load the data, row.names = 1 means the first column will be used as row names and header = T means the first row will be used as variable names.
+
+```{r}
+data <- read.csv('Boston.csv')#,row.names = 1,header = T)
+head(data) #check the first few rows and columns of the dataset
+ #check the number of columns(variables) in the dataset
+print("Number of columns in the dataset")
+print(ncol(data))
+ #check the number of rows (samples) in the dataset
+print("Number of rows in the dataset")
+print(nrow(data))
+```
+
+
+### How many variables in the dataset?  What are they? Are they quantitative or qualitative variables? 
+```{r}
+names(data) #check the name of variables
+summary(data) #+statistics of each variable
+```
+
+There are 15 attributes in each case of the dataset, which comprises of 
+
+
+3 qualitative variables:
+
+* X - index of sample
+
+* chas - Charles River dummy variable (1 if tract bounds river; 0 otherwise)
+
+* rad - index of accessibility to radial highways
+
+
+12 quantitative variables:
+
+* crim - per capita crime rate by town
+
+* zn - proportion of residential land zoned for lots over 25,000 sq.ft.
+
+* indus - proportion of non-retail business acres per town.
+
+* nox - nitric oxides concentration (parts per 10 million)
+
+* rm - average number of rooms per dwelling
+
+* age - proportion of owner-occupied units built prior to 1940
+
+* dis - weighted distances to five Boston employment centers
+
+* tax - full-value property-tax rate per $10,000
+
+* ptratio - pupil-teacher ratio by town
+
+* black - 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town
+
+* lstat - % lower status of the population
+
+* medv - Median value of owner-occupied homes in $1000's
+
+
+## Q2	Data visualization. 
+### Please use the scatterplots to visualize this dataset.
+
+```{r fig.height=8, fig.width=8}
+#do a pair plot
+ggpairs(data)
+```
+
+### Correlation plot using package "corrplot"
+
+```{r fig.height=10, fig.width=10}
+library(corrplot) #load the package to current environment
+Corr <- cor(data) #calculate the correlation coefficient matrix of variables
+# method=circle, square, ellipse, pie
+
+corrplot(Corr, method = 'circle')
+corrplot(Corr, method = 'square')
+corrplot(Corr, method = 'ellipse')
+corrplot(Corr, method = 'pie')
+```
+
+### add custom visualizations too
+
+```{r fig.height=10, fig.width=10}
+
+ggplot(data = data, mapping = aes(x = lstat, y = medv)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1.5)+ 
+  facet_wrap(~chas) + 
+  labs(title = "Relationship between median house value and percent of households with low socioeconomic status in Boston",
+       caption = "source: Boston Dataset",
+       x = "Low Status %",
+       y = "Median house value")
+```
+
+## Q3 Simple linear regression. Please fit a simple linear regression model between medv (median house value) and lstat (percent of households with low socioeconomic status).
+
+```{r}
+fit.simple <- lm(medv~lstat, data = data)
+summary(fit.simple)
+```
+
+```{r}
+ggplot(data = data, mapping = aes(x = lstat, y = medv)) +
+        geom_smooth(method="lm") +
+        geom_point() +
+        stat_regline_equation(label.x=30, label.y=60) +
+        stat_cor(aes(label=..rr.label..), label.x=30, label.y=50) +
+        labs(title = "Relationship between median house value and percent of households with low socioeconomic status in Boston",
+       caption = "source: Boston Dataset",
+       x = "Low Status %",
+       y = "Median house value")
+```
+### a) Is there a relationship between median house value and percent of households with low socioeconomic status? Infer based on p-value of t-test on the coefficient.
+
+Yes, there is a relationship between median house value and percent of households with low socioeconomic status. As the p-value of the t-test is smaller than 2.2e-16 , we can reject the null hypothesis with the significant value alpha of 0.001 and conclude that there is a statistically significant relationship between these two variables. 
+
+### b) How large is the effect of percent of households with low socioeconomic status on median house value?
+
+The coefficient of the percent of households with low socioeconomic status is -0.95 which means that for every one unit increase in the percent of households with low socioeconomic status, the median house value decreases by 0.95 units. This indicates a strong negative relationship between these two variables
+
+### c) How good this model fits the data? from the summary write the Residual standard error and variance what do they mean 
+
+From the regression report, Residual standard error: 6.216 on 504 degrees of freedom
+,Multiple R-squared: 0.5441 and Adjusted R-squared: 0.5432 which indicates that the model explains about 54.41% of the variability in the median house value. The adjusted R-squared value suggests that approximately 54.32% of the variability is accounted for by the independent variable, low socioeconomic status. Overall, this indicates that the model fits the data moderately well, but there may be other factors influencing the median house value that are not captured by this model.
+
+
+### d) Visualize the fitted line.
+
+```{r}
+plot(data$lstat, data$medv, xlab = 'lstat', ylab = 'medv')
+abline(fit.simple)
+```
+
+### e) If the percent of households with low socioeconomic status for three new neighborhoods are 5, 10 and 15, what will be the predictions of their median house value?
+
+```{r}
+lstat.new <- data.frame( lstat = c(5,10,15))
+medv.new <- predict(fit.simple, lstat.new)
+medv.new
+```
+
+### f) What are the 95% confidence intervals of your predictions?
+
+```{r}
+medv.new.conf <- predict(fit.simple, lstat.new, interval = "confidence")# use as a parameter interval = "confidence"
+medv.new.conf
+```
+
+### g) If the true median house values for three new neighborhoods are 33, 20, 50 respectively, what are residuals, what are the prediction errors? Which prediction is more accurate?
+residual = observation - prediction
+
+```{r}
+#observations as a set - medv.new
+medv.true = c(33,20,50)
+medv.residual = medv.new- medv.true
+medv.residual
+```
+
+## Q4 Residual plot. Please plot the residual plots of simple linear regression model fitted in Problem 3 and answer the following question. 
+
+```{r fig.height=10, fig.width=10}
+par(mfrow =c(2,2))
+res <- resid(fit.simple)
+plot(fitted(fit.simple), res)
+abline(0,0)
+
+qqnorm(res)
+qqline(res)
+
+plot(density(res))
+
+```
+
+### a) Is there a nonlinear relationship between medv and lstat?
+
+In the residual plot, we observed that the residuals follow a parabolic curve , indicating a possible nonlinear relationship between medv and lstat. This suggests that the relationship between these two variables may not be adequately captured by a linear model. Further analysis using nonlinear regression techniques may be necessary to better understand this relationship.
+
+### b) Is there correlation between error terms?
+
+```{r}
+cor.test(fitted(fit.simple), res, method="pearson")
+```
+
+Using Pearson's correlation test we have p-value = 1, thus we do not have evidence to reject the null hypothesis of no correlation between the error terms. This suggests that the error terms are independent and there is no correlation present among them.
+
+### c) Is there heteroscedasticity between error terms?
+
+```{r}
+bptest(fit.simple)
+```
+
+Using the Breusch-Pagan test, we obtain the p-value of 8.262e-5 which is less than 0.01. Thus, we reject Ho (The variance of the errors is constant -homoscedasticity) and conclude that there is heteroscedasticity between error terms.
+
+### d) Are there outliers?
+
+Cook's distance is a measure of the influence of each observation on the fitted values. Large values of Cook's distance indicate potential outliers. 
+
+```{r}
+cooksd <- cooks.distance(fit.simple)
+potential.outliers <- which(cooksd > 4 / length(cooksd))  
+
+print(res[potential.outliers])
+```
+
+Using Cook's distance we found 41 outliers represent in the residual plot. We can confirm the finding using boxplot on the residuals
+
+```{r}
+boxplot(res)
+```
+The boxplot show consistent result with the Cook's distance test. Thus, there are outliers.
+
+## Q5 Multiple linear regression. Please fit a multiple linear regression model between medv and the other variables.
+
+```{r}
+fit.multiple <- lm(medv~., data = data)
+summary(fit.multiple)
+```
+
+### a) Is there a relationship between median house value and the other variables?
+
+Yes, there is a relationship between median house value and the other variables. As the p-value of the t-test is smaller than 2.2e-16 , we can reject the null hypothesis with the significant value alpha of 0.001 and conclude that there is a statistically significant relationship between median house value and the other variables.
+
+### b) Which variables are significant and how large are the effect?
+
+Looking at the coefficients, we found that variables dis, rm, nox, chas has large value of coefficients, which indicates that these variables have a significant effect on the outcome. The larger the coefficient, the larger the impact of that variable on the outcome variable.
+
+The value of coefficients of the aforementioned variables is as follow: 
+* chas: 2.705245
+* nox:-17.541602
+* rm: 3.839225
+* dis: -1.493304
+
+This means a unit increase of chas will result in a 2.705245 unit increase in the outcome variable, while a unit increase of nox will lead to a decrease of 17.541602 units in the outcome variable. Similarly, a unit increase in rm will result in a 3.839225 unit increase in the outcome variable, while a unit increase in dis will lead to a decrease of 1.493304 units in the outcome variable. These coefficients provide valuable insights into the relationship between these variables and the outcome 
+
+### c) How good this model fits the data?
+
+From the regression report, Residual standard error: 4.743 on 491 degrees of freedom ,Multiple R-squared of 0.7414 and Adjusted R-squared of 0.734 which indicates that the model explains about 74.14% of the variability in the median house value. The adjusted R-squared value suggests that approximately 73.4% of the variability is accounted for by the independent variables. Overall, this indicates that the model fits the data better than the fit.simple model with the Multiple R-squared of only 0.5441, but there may be other factors influencing the median house value that are not captured by this model.
+
+### d) Select the best subset of variables using forward selection, backward selection and mixed selection with AIC criteria. (write what they are and what is AIC criteria)
+
+**The Akaike Information Criterion (AIC)** is a statistical measure used for model selection. It was developed by Hirotugu Akaike, a Japanese statistician, and is based on information theory. AIC provides a way to balance the goodness of fit of a model to the data and its complexity.
+
+AIC takes into account two main factors: goodness of fit and model complexity penalty. Goodness of fit refers to how well a model explains the observed data. A model that fits the data well will have a lower AIC value. On the other hand, model complexity penalty refers to the idea that simpler models are preferred unless the added complexity significantly improves the fit to the data. AIC penalizes models for being too complex, with a greater penalty for models with more parameters.
+
+The formula for AIC is given by The formula for AIC is given by **AIC=−2×log-likelihood+2×number of parameters**. The log-likelihood measures how well the model explains the observed data, while the penalty term discourages overly complex models.
+
+In the context of model selection, the goal is to find the model that minimizes the AIC value. This involves a trade-off between goodness of fit and model simplicity. A lower AIC suggests a better balance between explaining the data and avoiding overfitting.
+
+#### Forward selection
+``` {r}
+fit.null <- lm(medv~1,data = data)
+select.forward <- step(fit.null, scope=list(lower=fit.null, upper=fit.multiple), direction="forward")
+# summary of forward
+summary(select.forward)
+```
+Using forward selection results in the following variables: lstat, rm, ptratio, dis, nox, chas, 
+black, zn, crim, rad and tax
+#### Backward selection
+``` {r}
+select.backward <- step(fit.multiple, scope=list(lower=fit.null, upper=fit.multiple), direction="backward")
+#summary of backward
+summary(select.backward)
+```
+Using forward selection results in the following variables: lstat, rm, ptratio, dis, nox, chas, 
+black, zn, crim, rad and tax
+
+#### Mixed selection
+``` {r}
+select.mixed <- step(fit.null, scope=list(lower=fit.null, upper=fit.multiple), direction="both")
+#summary of mixed
+summary(select.mixed)
+```
+Using forward selection results in the following variables: lstat, rm, ptratio, dis, nox, chas, 
+black, zn, crim, rad and tax
+
+### e) Do different selection algorithms find the same subset? Which variables are selected?  
+
+Yes, different selection algorithms find the same subset.
+The selected variables are: lstat, rm, ptratio, dis, nox, chas, black, zn, crim, rad and tax. 
+
+### f) Does variable selection improve the R-square? How about the adjusted R-square?
+
+The variable selection yields a multiple R-squared of 0.7406 and an adjusted R-squared of 0.7348. This is compared to the model using all variables with a multiple R-squared of 0.7414 and an adjusted R-squared of 0.734, which indicates that variable selection decreases the multiple R-squared and increases the adjusted R-squared . This suggests that the selected variables have a stronger relationship with the outcome compared to including all variables in the model. The adjusted R-squared takes into account the number of variables in the model, and by selecting only relevant variables, it helps to improve the model's overall fit and reduce potential overfitting.
+
+## Q6 Residual plot. Please plot the residual plots of multiple linear regression model fitted in Problem 5 and answer the following question. 
+
+``` {r fig.height=10, fig.width=10}
+par(mfrow=c(2,2))
+plot(select.forward)
+
+par(mfrow=c(2,2))
+plot(select.backward)
+
+par(mfrow=c(2,2))
+plot(select.mixed)
+
+par(mfrow =c(2,2))
+plot(fit.multiple)
+```
+
+## Q7 Use non-linear transformation to include lstat^2.
+
+``` {r fig.height=10, fig.width=10}
+fit.nonlinear <- lm(medv~lstat + I(lstat^2) ,data = data)
+summary(fit.nonlinear)
+
+par(mfrow=c(2,2))
+plot(fit.nonlinear)
+```
+
+### a) Is the model improved?
+Compare to fit.simple model with a multiple R-squared of 0.5441 and adjusted R-squared of 0.5432. The fit.nonlinear performed better with an R-squared of 0.6407 and an adjusted R-squared of 0.6393. 
+
+The Residual standard error also significantly decreased from 6.216 to 5.524. 
+
+### b) Is the nonlinear effect significant?
+
+The nonlinear effect is not significant because its corresponding coefficient is very small (0.043547). 
+
+### c) Use the residual plot to see if the nonlinear relationship is solved.
+
+From the residual plot we can see that the residuals are not evenly distributed, thus the nonlinear relationship is not solved. We can confirm the result with the Breusch-Pagan test.
+
+```{r}
+## 
+##  studentized Breusch-Pagan test
+## 
+bptest(fit.nonlinear)
+```
+
+Using the Breusch-Pagan test, we obtain the p-value of 2.608e-11 which is less than 0.01. Thus, we reject Ho (The variance of the errors is constant -homoscedasticity) and conclude that there is heteroscedasticity between error terms. Since there is still heteroscedasticity between residuals, the nonlinear relationship is not solved.
+
+## Q8 Include the interaction term lstat X black.(so what are these processes where we add non linearity to a lineary model.why are they important)
+
+The formula lstat * black is equivalent to lstat + black + lstat:black, so it includes the main effects of lstat and black as well as their interaction term.
+
+Here's what the terms represent:
+
+* The main effect of lstat represents the change in the response variable for a one-unit change in lstat, assuming black is 0.
+* The main effect of black represents the change in the response variable for a one-unit change in black, assuming lstat is 0.
+* The interaction term lstat:black represents the additional change in the response variable when both lstat and black are simultaneously nonzero. The presence of an interaction term suggests that the effect of lstat on the response variable is modified by the level of black.
+
+The interaction term are important because they allow us to capture more complex relationships between variables. By including interaction terms, we can account for situations where the effect of one variable on the outcome depends on the value of another variable. This helps to improve the model's predictive accuracy and better represent real-world scenarios where relationships may not be strictly linear. Additionally, including interaction terms can also help to detect and account for potential confounding or moderation effects in the data. 
+
+```{r}
+fit.interact <- lm(medv~lstat*black,data = data)
+summary(fit.interact)
+```
+
+### a) Is the model improved?
+
+With a multiple R-squared of 0.5614 and an adjusted R-squared of 0.5588. Compared to fit.nonlinear model, the fit.interact model does not improved the performance.
+
+### b) Is the interaction effect significant?
+
+The interaction effect is not significant because its corresponding coefficient is very small (-0.0018059).
+
+### c) Include both nonlinear term in Q7 and interaction term, answer a) and b).
+
+```{r fig.height=10, fig.width=10}
+fit.interact.nonlinear <- lm(medv~.+I(lstat^2)-indus-age+lstat*black,data = data)
+summary(fit.interact.nonlinear)
+par(mfrow=c(2,2))
+plot(fit.interact.nonlinear)
+```
+
+### d) Is the model improved?
+With a multiple R-squared of 0.788 and an adjusted R-squared of 0.782. Compared to fit.nonlinear model, the fit.interact.nonlinear model improved the performance.
+
+### e) Is the interaction effect significant?
+
+The interaction effect is not significant because its corresponding coefficient is very small (3.504e-04).
+
+## Q9	Apply K-nearest neighbor regression model on this dataset and find the optimal K.
+
+### Step-1: Randomly separate the dataset into training and test data
+we used sample function to randomly reorder the samples and use first 400 samples as training and the remaining samples as test.
+```{r} 
+# write comments on what is happening below
+randid <- sample(c(1:nrow(data)))
+Boston.train <- data[randid[c(1:400)],]
+Boston.test <- data[randid[c(401:506)],]
+lstat.train <- Boston.train['lstat']
+medv.train <- Boston.train['medv']
+lstat.test <-Boston.test['lstat']
+medv.test <- Boston.test['medv']
+```
+### Step-2: Use training data to predict medv values at test data and select the best K
+
+Predict the medv under K=1,5,10,50,100,250 
+
+```{r}
+library(FNN)
+ks <- c(1,5,10,50,100,250)
+model_list <- list()
+
+#repeat or automate till you get an optimum k value 
+for (k in ks){
+  model <- knn.reg(train = lstat.train, test = lstat.test, y = medv.train, k = k)
+  model_list <- append(model_list, list(model))
+}
+```
+
+### Step-3: Find the best K
+Calculate the mse under each K value
+
+```{r}
+mse_list = list()
+
+for (model in model_list){
+  mse = sum((model$pred-medv.test)^2)/106
+  mse_list <- append(mse_list, list(mse))
+} 
+
+k_best_indx <- which.min(mse_list)
+k_best <- ks[k_best_indx] 
+mse_best <- mse_list[k_best_indx]
+
+glue('The best K is {k_best} with min MSE of {mse_best}')
+```
